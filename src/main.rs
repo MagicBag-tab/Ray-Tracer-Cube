@@ -62,6 +62,7 @@ pub fn shade(
     ray_origin: &Vec3,
     light: &Light,
     objects: &[Box<dyn RayIntersect>],
+    render_mode: u8,
 ) -> Color {
     let light_direction = (light.position - intersect.point).normalize();
     let view_direction = (ray_origin - intersect.point).normalize();
@@ -77,22 +78,37 @@ pub fn shade(
     let mut blend_factor = 0.0;
     let mut water_normal_mapped = Vec3::new(0.0, 0.0, 1.0);
 
-    if let Some(overlay) = &intersect.material.overlay_texture {
-        blend_factor = overlay.get_intensity(u, v).sqrt().clamp(0.0, 1.0);
-        
-        if blend_factor > 0.0 {
-            if let Some(overlay_normal) = &intersect.material.overlay_normal_map {
-                water_normal_mapped = overlay_normal.get_normal(u, v);
+    if render_mode != 1 {
+        if let Some(overlay) = &intersect.material.overlay_texture {
+            blend_factor = overlay.get_intensity(u, v).sqrt().clamp(0.0, 1.0);
+            
+            if blend_factor > 0.0 {
+                if let Some(overlay_normal) = &intersect.material.overlay_normal_map {
+                    water_normal_mapped = overlay_normal.get_normal(u, v);
+                }
             }
         }
     }
 
     let mut diffuse_color = intersect.material.diffuse;
-    if let Some(texture) = &intersect.material.texture {
-        let refracted_u = u + water_normal_mapped.x * 0.02 * blend_factor;
-        let refracted_v = v + water_normal_mapped.y * 0.02 * blend_factor;
+    if render_mode != 2 {
+        if let Some(texture) = &intersect.material.texture {
+            let refracted_u = u + water_normal_mapped.x * 0.03 * blend_factor;
+            let refracted_v = v + water_normal_mapped.y * 0.03 * blend_factor;
 
-        diffuse_color = texture.get_color(refracted_u, refracted_v);
+            diffuse_color = texture.get_color(refracted_u, refracted_v);
+        }
+    }
+
+    if blend_factor > 0.0 {
+
+        let drop_tint = Color::new(255, 255, 255) * (0.03 * blend_factor);
+        
+
+        let bottom_factor = (-water_normal_mapped.y).max(0.0);
+        let bottom_shadow = 1.0 - (bottom_factor * 0.4 * blend_factor); // 0.4 controla qué tan oscura es
+        
+        diffuse_color = (diffuse_color * bottom_shadow) + drop_tint;
     }
 
     let base_normal = intersect.normal;
@@ -104,10 +120,11 @@ pub fn shade(
     let tangent = bitangent.cross(&base_normal).normalize();
 
     let mut tile_normal = Vec3::new(0.0, 0.0, 1.0);
-    if let Some(normal_map) = &intersect.material.normal_map {
-        tile_normal = normal_map.get_normal(u, v);
+    if render_mode != 2 {
+        if let Some(normal_map) = &intersect.material.normal_map {
+            tile_normal = normal_map.get_normal(u, v);
+        }
     }
-    
 
     let tile_world_normal = (tangent * tile_normal.x + bitangent * tile_normal.y + base_normal * tile_normal.z).normalize();
 
@@ -124,20 +141,28 @@ pub fn shade(
     let mut specular_factor = intersect.material.albedo[1];
     let mut specular_exponent = intersect.material.specular;
 
-    if let Some(specular_map) = &intersect.material.specular_map {
-        specular_factor *= specular_map.get_intensity(u, v);
+    if render_mode != 2 {
+        if let Some(specular_map) = &intersect.material.specular_map {
+            specular_factor *= specular_map.get_intensity(u, v);
+        }
     }
+
+    let mut ambient_reflection = Color::new(0, 0, 0);
 
     if blend_factor > 0.0 {
         let water_world_normal = (tangent * water_normal_mapped.x + bitangent * water_normal_mapped.y + base_normal * water_normal_mapped.z).normalize();
+        
         specular_normal = (tile_world_normal * (1.0 - blend_factor) + water_world_normal * blend_factor).normalize();
 
-
         let fresnel = (1.0 - dot(&view_direction, &water_world_normal).abs().clamp(0.0, 1.0)).powf(5.0);
+        
+        let sky_color = Color::new(100, 130, 160);
+        ambient_reflection = sky_color * (fresnel * 0.6 * blend_factor);
+
         specular_factor = specular_factor * (1.0 - blend_factor)
-            + (1.5 + 1.0 * fresnel) * blend_factor;
+            + (2.0 + 1.0 * fresnel) * blend_factor;
         specular_exponent = specular_exponent * (1.0 - blend_factor)
-            + 500.0 * blend_factor;
+            + 150.0 * blend_factor;
     }
 
     let reflect_direction = reflect(&-light_direction, &specular_normal);
@@ -147,7 +172,7 @@ pub fn shade(
 
     let specular = light.color * (specular_intensity * specular_factor * light_intensity);
 
-    ambient + diffuse + specular
+    ambient + diffuse + specular + ambient_reflection
 }
 
 pub fn cast_ray(
@@ -156,6 +181,7 @@ pub fn cast_ray(
     objects: &[Box<dyn RayIntersect>],
     light: &Light,
     depth: u32,
+    render_mode: u8,
 ) -> Color {
     if depth > MAX_DEPTH {
         return Color::from_hex(BACKGROUND_COLOR);
@@ -175,7 +201,7 @@ pub fn cast_ray(
         return environment_color(ray_origin, ray_direction);
     };
 
-    let color = shade(&intersect, ray_origin, light, objects);
+    let color = shade(&intersect, ray_origin, light, objects, render_mode);
 
     let reflectivity = intersect.material.albedo[2];
 
@@ -192,6 +218,7 @@ pub fn cast_ray(
         objects,
         light,
         depth + 1,
+        render_mode,
     );
 
     color * (1.0 - reflectivity) + reflected * reflectivity
@@ -202,6 +229,7 @@ pub fn render(
     objects: &[Box<dyn RayIntersect>],
     camera: &Camera,
     light: &Light,
+    render_mode: u8,
 ) {
     let width = framebuffer.width as f32;
     let height = framebuffer.height as f32;
@@ -226,7 +254,7 @@ pub fn render(
                     let ray_direction = normalize(&Vec3::new(screen_x, screen_y, -1.0));
                     let ray_direction = camera.basis_change(&ray_direction);
 
-                    let sample_color = cast_ray(&camera.eye, &ray_direction, objects, light, 0);
+                    let sample_color = cast_ray(&camera.eye, &ray_direction, objects, light, 0, render_mode);
                     let hex = sample_color.to_hex();
                     total_r += ((hex >> 16) & 0xFF) as f32;
                     total_g += ((hex >> 8) & 0xFF) as f32;
@@ -280,8 +308,22 @@ fn main() {
     );
 
     let mut camera_moved = true;
+    let mut render_mode = 0; // 0 = Azulejo con gotas, 1 = Sólo Azulejo, 2 = Color Plano con gotas
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        if window.is_key_pressed(Key::Key1, minifb::KeyRepeat::No) {
+            render_mode = 0;
+            camera_moved = true;
+        }
+        if window.is_key_pressed(Key::Key2, minifb::KeyRepeat::No) {
+            render_mode = 1;
+            camera_moved = true;
+        }
+        if window.is_key_pressed(Key::Key3, minifb::KeyRepeat::No) {
+            render_mode = 2;
+            camera_moved = true;
+        }
+
         let orbit = [
             (Key::Left, ROTATION_SPEED, 0.0),
             (Key::Right, -ROTATION_SPEED, 0.0),
@@ -297,7 +339,7 @@ fn main() {
         }
 
         if camera_moved {
-            render(&mut framebuffer, &objects, &camera, &light);
+            render(&mut framebuffer, &objects, &camera, &light, render_mode);
             camera_moved = false;
         }
 
