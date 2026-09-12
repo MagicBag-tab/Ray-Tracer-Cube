@@ -271,7 +271,7 @@ fn main() {
         }),
     ];
 
-    let light = Light::new(Vec3::new(-4.5, 4.0, 6.0), Color::new(255, 250, 244), 1.45);
+    let light = Light::new(Vec3::new(-4.5, 4.0, 6.0), Color::new(255, 250, 244), 2.0);
 
     let mut camera = Camera::new(
         Vec3::new(0.0, 0.4, 6.0),
