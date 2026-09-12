@@ -5,6 +5,7 @@ mod framebuffer;
 mod light;
 mod ray_intersect;
 mod sphere;
+mod cube;
 
 use minifb::{Key, Window, WindowOptions};
 use nalgebra_glm::{dot, normalize, Vec3};
@@ -13,11 +14,10 @@ use std::time::Duration;
 
 use crate::camera::Camera;
 use crate::color::Color;
-use crate::cylinder::Cylinder;
 use crate::framebuffer::Framebuffer;
 use crate::light::Light;
 use crate::ray_intersect::{Intersect, Material, RayIntersect};
-use crate::sphere::Sphere;
+use crate::cube::Cube;
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
@@ -167,47 +167,11 @@ fn main() {
 
     let mut window = Window::new("Lakitu", WIDTH, HEIGHT, WindowOptions::default()).unwrap();
 
-    let ivory = Material::new(Color::new(100, 100, 80), 50.0, [0.6, 0.3, 0.1]);
-    let rubber = Material::new(Color::new(80, 0, 0), 10.0, [0.9, 0.1, 0.0]);
-    let cobalt = Material::new(Color::new(40, 80, 140), 80.0, [0.7, 0.4, 0.15]);
-    let jade = Material::new(Color::new(60, 130, 100), 30.0, [0.8, 0.25, 0.05]);
-    let slate = Material::new(Color::new(80, 80, 92), 15.0, [0.85, 0.1, 0.2]);
-    let mirror = Material::new(Color::new(255, 255, 255), 1425.0, [0.0, 10.0, 0.85]);
-
     let objects: Vec<Box<dyn RayIntersect>> = vec![
-        Box::new(Cylinder::new(
-            Vec3::new(0.0, -2.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-            0.25,
-            6.0,
-            slate,
-        )),
-        Box::new(Sphere {
-            center: Vec3::new(0.0, -0.75, 0.0),
-            radius: 1.0,
-            material: ivory,
-        }),
-        Box::new(Sphere {
-            center: Vec3::new(1.9, -1.25, -0.9),
-            radius: 0.5,
-            material: rubber,
-        }),
-        Box::new(Sphere {
-            center: Vec3::new(-1.5, -1.25, 1.1),
-            radius: 0.5,
-            material: cobalt,
-        }),
-        Box::new(Cylinder::new(
-            Vec3::new(-2.3, -1.75, -0.6),
-            Vec3::new(0.28, 1.0, -0.12),
-            2.0,
-            0.35,
-            jade,
-        )),
-        Box::new(Sphere {
-            center: Vec3::new(2.35, -1.0, 1.45),
-            radius: 0.75,
-            material: mirror,
+        Box::new(Cube {
+            center: Vec3::new(0.0, 0.0, 0.0),
+            size: 2.0,
+            material: Material::new(Color::new(199, 159, 224), 100.0, [0.6, 0.3, 0.1]),
         }),
     ];
 
@@ -215,7 +179,7 @@ fn main() {
 
     let mut camera = Camera::new(
         Vec3::new(0.0, 0.4, 6.0),
-        Vec3::new(0.0, -0.7, 0.0),
+        Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
     );
 
