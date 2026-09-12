@@ -31,11 +31,16 @@ impl RayIntersect for Sphere {
 
         let normal = (point - self.center).normalize();
 
+        let u = 0.5 + (normal.z.atan2(normal.x) / (2.0 * std::f32::consts::PI));
+        let v = 0.5 - (normal.y.asin() / std::f32::consts::PI);
+
         Some(Intersect {
             point,
             normal,
             distance: t,
-            material: self.material,
+            material: self.material.clone(),
+            u,
+            v,
         })
     }
 }

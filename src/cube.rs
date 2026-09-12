@@ -70,12 +70,27 @@ impl RayIntersect for Cube {
             normal.z = p.z.signum();
         }
 
+        let u;
+        let v;
+        if normal.x.abs() > 0.5 {
+            u = (p.z + half_size) / self.size;
+            v = (p.y + half_size) / self.size;
+        } else if normal.y.abs() > 0.5 {
+            u = (p.x + half_size) / self.size;
+            v = (p.z + half_size) / self.size;
+        } else {
+            u = (p.x + half_size) / self.size;
+            v = (p.y + half_size) / self.size;
+        }
+
         Some(Intersect {
             point, 
             normal, 
             distance: t_min,
-            material: self.material })
+            material: self.material.clone(),
+            u,
+            v,
+        })
     }
 
 }
-

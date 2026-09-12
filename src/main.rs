@@ -6,6 +6,7 @@ mod light;
 mod ray_intersect;
 mod sphere;
 mod cube;
+mod texture;
 
 use minifb::{Key, Window, WindowOptions};
 use nalgebra_glm::{dot, normalize, Vec3};
@@ -67,8 +68,13 @@ pub fn shade(
         light.intensity
     };
 
+    let mut diffuse_color = intersect.material.diffuse;
+    if let Some(texture) = &intersect.material.texture {
+        diffuse_color = texture.get_color(intersect.u, intersect.v);
+    }
+
     let diffuse_intensity = dot(&intersect.normal, &light_direction).max(0.0);
-    let diffuse = intersect.material.diffuse
+    let diffuse = diffuse_color
         * (diffuse_intensity * intersect.material.albedo[0] * light_intensity);
 
     let reflect_direction = reflect(&-light_direction, &intersect.normal);
@@ -97,7 +103,7 @@ pub fn cast_ray(
 
     for object in objects {
         if let Some(intersect) = object.ray_intersect(ray_origin, ray_direction) {
-            if closest.is_none_or(|current| intersect.distance < current.distance) {
+            if closest.as_ref().is_none_or(|current| intersect.distance < current.distance) {
                 closest = Some(intersect);
             }
         }
@@ -184,11 +190,14 @@ fn main() {
 
     let mut window = Window::new("Lakitu", WIDTH, HEIGHT, WindowOptions::default()).unwrap();
 
+    let tile_texture = std::sync::Arc::new(texture::Texture::new("assets/TilesSquarePoolMixed001_COL_2K.jpg"));
+
     let objects: Vec<Box<dyn RayIntersect>> = vec![
         Box::new(Cube {
             center: Vec3::new(0.0, 0.0, 0.0),
             size: 2.0,
-            material: Material::new(Color::new(199, 159, 224), 100.0, [0.6, 0.3, 0.1]),
+            material: Material::new(Color::new(199, 159, 224), 100.0, [0.6, 0.3, 0.1])
+                .with_texture(tile_texture),
         }),
     ];
 

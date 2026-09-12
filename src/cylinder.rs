@@ -83,11 +83,17 @@ impl RayIntersect for Cylinder {
 
         let (distance, normal) = hit?;
 
+        let u = 0.5 + (normal.z.atan2(normal.x) / (2.0 * std::f32::consts::PI));
+        let point = ray_origin + ray_direction * distance;
+        let v = (point.y - self.base.y) / self.height;
+
         Some(Intersect {
-            point: ray_origin + ray_direction * distance,
+            point,
             normal,
             distance,
-            material: self.material,
+            material: self.material.clone(),
+            u,
+            v,
         })
     }
 }
