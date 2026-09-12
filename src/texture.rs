@@ -28,17 +28,34 @@ impl Texture {
     }
 
     pub fn get_color(&self, u: f32, v: f32) -> Color {
-        // Clamp UV coordinates to [0.0, 1.0] to prevent out-of-bounds errors
+        let rgba = self.get_pixel(u, v);
+        Color::new(rgba[0], rgba[1], rgba[2])
+    }
+
+    pub fn get_normal(&self, u: f32, v: f32) -> nalgebra_glm::Vec3 {
+        let rgba = self.get_pixel(u, v);
+        // Convert from [0, 255] to [-1.0, 1.0]
+        let nx = (rgba[0] as f32 / 255.0) * 2.0 - 1.0;
+        let ny = (rgba[1] as f32 / 255.0) * 2.0 - 1.0;
+        let nz = (rgba[2] as f32 / 255.0) * 2.0 - 1.0;
+        nalgebra_glm::normalize(&nalgebra_glm::Vec3::new(nx, ny, nz))
+    }
+
+    pub fn get_intensity(&self, u: f32, v: f32) -> f32 {
+        let rgba = self.get_pixel(u, v);
+        rgba[0] as f32 / 255.0 // Just use the red channel
+    }
+
+    pub fn get_alpha(&self, u: f32, v: f32) -> f32 {
+        let rgba = self.get_pixel(u, v);
+        rgba[3] as f32 / 255.0 // Use the alpha channel
+    }
+
+    fn get_pixel(&self, u: f32, v: f32) -> image::Rgba<u8> {
         let u = u.clamp(0.0, 1.0);
         let v = v.clamp(0.0, 1.0);
-
-        // Convert UV to pixel coordinates
         let x = (u * (self.width - 1) as f32).round() as u32;
-        let y = ((1.0 - v) * (self.height - 1) as f32).round() as u32; // Invert V so 0.0 is bottom
-
-        let pixel = self.image.get_pixel(x, y);
-        let rgba = pixel.0;
-
-        Color::new(rgba[0], rgba[1], rgba[2])
+        let y = ((1.0 - v) * (self.height - 1) as f32).round() as u32;
+        self.image.get_pixel(x, y)
     }
 }

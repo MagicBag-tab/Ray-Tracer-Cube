@@ -11,6 +11,9 @@ pub struct Material {
     pub albedo: [f32; 3],
     pub texture: Option<Arc<Texture>>,
     pub normal_map: Option<Arc<Texture>>,
+    pub specular_map: Option<Arc<Texture>>,
+    pub overlay_texture: Option<Arc<Texture>>,
+    pub overlay_normal_map: Option<Arc<Texture>>,
 }
 
 impl Material {
@@ -21,6 +24,9 @@ impl Material {
             albedo,
             texture: None,
             normal_map: None,
+            specular_map: None,
+            overlay_texture: None,
+            overlay_normal_map: None,
         }
     }
 
@@ -31,6 +37,17 @@ impl Material {
     
     pub fn with_normal_map(mut self, normal_map: Arc<Texture>) -> Self {
         self.normal_map = Some(normal_map);
+        self
+    }
+
+    pub fn with_specular_map(mut self, specular_map: Arc<Texture>) -> Self {
+        self.specular_map = Some(specular_map);
+        self
+    }
+
+    pub fn with_overlay(mut self, texture: Arc<Texture>, normal_map: Arc<Texture>) -> Self {
+        self.overlay_texture = Some(texture);
+        self.overlay_normal_map = Some(normal_map);
         self
     }
 }
